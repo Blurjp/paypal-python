@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ briefing.title }} - VoiceBrief</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            line-height: 1.3;
+        }
+
+        .meta {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        .audio-player {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .summary {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .summary h2 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .summary-text {
+            color: #555;
+            line-height: 1.6;
+            font-size: 14px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .footer {
+            margin-top: 30px;
+            color: #999;
+            font-size: 12px;
+        }
+
+        .play-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.3s ease;
+        }
+
+        .play-button:hover {
+            background: #5568d3;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px;
+            }
+
+            h1 {
+                font-size: 22px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🎧</div>
+        <h1>{{ briefing.title }}</h1>
+        <div class="meta">
+            Posted {{ briefing.created_at[:10] }}
+        </div>
+
+        <div class="audio-player">
+            <p style="color: #666; margin-bottom: 10px; font-weight: 600;">Your Audio Briefing</p>
+            <audio controls preload="metadata" id="audioPlayer">
+                <source src="{{ briefing.audio_url }}" type="audio/mpeg">
+                Your browser does not support the audio element.
+            </audio>
+        </div>
+
+        {% if briefing.summary_text and briefing.summary_text != "Processing..." %}
+        <div class="summary">
+            <h2>📄 Transcript</h2>
+            <div class="summary-text">
+                {{ briefing.summary_text }}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="footer">
+            Powered by VoiceBrief
+        </div>
+    </div>
+
+    <script>
+        // Auto-play on load (may be blocked by browser)
+        const audio = document.getElementById('audioPlayer');
+
+        // Optional: Track when user starts playing
+        audio.addEventListener('play', function() {
+            console.log('Audio playback started');
+        });
+
+        // Optional: Track when user finishes
+        audio.addEventListener('ended', function() {
+            console.log('Audio playback completed');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # VoiceBrief FastAPI Application
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app/app
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - voicebrief-network
+
+  # Redis for background tasks
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - voicebrief-network
+
+  # Celery Worker (optional - for production background processing)
+  # celery-worker:
+  #   build: .
+  #   command: celery -A app.tasks worker --loglevel=info
+  #   environment:
+  #     - ENVIRONMENT=development
+  #   env_file:
+  #     - .env
+  #   depends_on:
+  #     - redis
+  #   restart: unless-stopped
+  #   networks:
+  #     - voicebrief-network
+
+volumes:
+  redis-data:
+
+networks:
+  voicebrief-network:
+    driver: bridge
