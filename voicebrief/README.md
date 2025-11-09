@@ -9,7 +9,7 @@ VoiceBrief is a B2B SaaS platform that automatically converts company updates, p
 - **Slack Integration**: Posts briefings directly to your team's Slack channels
 - **Interactive Tracking**: Track who listened and who completed each briefing
 - **Analytics Dashboard**: View completion rates and engagement metrics
-- **Multiple Input Sources**: Support for text, PDFs, URLs, and Notion pages
+- **Multiple Input Sources**: Support for text, PDFs, URLs, Google Docs, and Notion pages
 
 ## 📋 Table of Contents
 
@@ -19,6 +19,7 @@ VoiceBrief is a B2B SaaS platform that automatically converts company updates, p
 - [Configuration](#configuration)
 - [Slack App Setup](#slack-app-setup)
 - [Supabase Setup](#supabase-setup)
+- [Google Docs Setup](#google-docs-setup)
 - [API Endpoints](#api-endpoints)
 - [Deployment](#deployment)
 - [Development](#development)
@@ -132,6 +133,10 @@ SLACK_BOT_TOKEN=xoxb-...
 SLACK_SIGNING_SECRET=...
 SLACK_DEFAULT_CHANNEL=#daily-briefings
 
+# Google Docs (Optional - for Google Docs integration)
+GOOGLE_CREDENTIALS_FILE=/path/to/service-account.json
+# Or use JSON string: GOOGLE_CREDENTIALS_JSON='{"type": "service_account", ...}'
+
 # Application
 APP_BASE_URL=https://your-domain.com
 ```
@@ -193,6 +198,89 @@ Under **OAuth & Permissions**, add these Bot Token Scopes:
 ### 4. Configure CORS (if needed)
 
 If hosting on a different domain, configure CORS in Supabase settings.
+
+## 📄 Google Docs Setup
+
+Google Docs integration allows users to paste a Google Docs URL and automatically extract the content to create voice briefings. This is **optional** - VoiceBrief works without it.
+
+### 1. Create a Google Cloud Project
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a new project or select an existing one
+3. Enable the **Google Docs API**:
+   - Go to "APIs & Services" → "Library"
+   - Search for "Google Docs API"
+   - Click "Enable"
+
+### 2. Create a Service Account
+
+1. Go to "APIs & Services" → "Credentials"
+2. Click "Create Credentials" → "Service Account"
+3. Name it "VoiceBrief Service Account"
+4. Click "Create and Continue"
+5. Skip optional steps and click "Done"
+
+### 3. Generate Service Account Key
+
+1. Click on the service account you just created
+2. Go to the "Keys" tab
+3. Click "Add Key" → "Create new key"
+4. Select "JSON" format
+5. Click "Create" - a JSON file will download
+
+### 4. Configure VoiceBrief
+
+**Option A: Using JSON file** (recommended for local development)
+
+```bash
+# Move the downloaded JSON file to your project
+mv ~/Downloads/service-account-key.json /path/to/voicebrief/
+
+# Update .env
+GOOGLE_CREDENTIALS_FILE=/path/to/voicebrief/service-account-key.json
+```
+
+**Option B: Using JSON string** (recommended for cloud deployment)
+
+```bash
+# Copy the entire JSON file content and set as environment variable
+GOOGLE_CREDENTIALS_JSON='{"type": "service_account", "project_id": "...", ...}'
+```
+
+### 5. Share Google Docs with Service Account
+
+For each Google Doc you want to extract:
+
+1. Open the Google Doc
+2. Click "Share"
+3. Add the service account email (found in the JSON file, looks like: `voicebrief-sa@your-project.iam.gserviceaccount.com`)
+4. Give it "Viewer" permission
+5. Click "Send"
+
+**Alternative:** Make the Google Doc accessible to "Anyone with the link" (Viewer permission)
+
+### 6. Test Google Docs Integration
+
+```bash
+# Upload a briefing from a Google Docs URL
+curl -X POST http://localhost:8000/upload \
+  -F "title=Test Google Doc Briefing" \
+  -F "url=https://docs.google.com/document/d/YOUR_DOC_ID/edit"
+```
+
+### Troubleshooting Google Docs
+
+**Error: "Access denied to Google Doc"**
+- Make sure the document is shared with the service account email
+- Or make the document public with "Anyone with the link" access
+
+**Error: "Google Docs service not initialized"**
+- Verify `GOOGLE_CREDENTIALS_FILE` or `GOOGLE_CREDENTIALS_JSON` is set correctly
+- Check the JSON file is valid and contains all required fields
+
+**Error: "Invalid Google Docs URL"**
+- Ensure you're using the full URL from the browser (e.g., `https://docs.google.com/document/d/ABC123/edit`)
+- Both `/document/d/` and `/file/d/` formats are supported
 
 ## 📡 API Endpoints
 

@@ -3,6 +3,7 @@ Configuration management for VoiceBrief application.
 """
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+from typing import Optional
 
 
 class Settings(BaseSettings):
@@ -25,6 +26,10 @@ class Settings(BaseSettings):
     slack_bot_token: str
     slack_signing_secret: str
     slack_default_channel: str = "#daily-briefings"
+
+    # Google Docs
+    google_credentials_file: Optional[str] = None
+    google_credentials_json: Optional[str] = None
 
     # Application
     app_host: str = "0.0.0.0"

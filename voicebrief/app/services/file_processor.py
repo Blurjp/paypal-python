@@ -7,6 +7,7 @@ import requests
 from io import BytesIO
 from typing import Optional
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -72,10 +73,49 @@ class FileProcessor:
             raise ValueError(f"Failed to extract text from DOCX: {str(e)}")
 
     @staticmethod
+    def is_google_docs_url(url: str) -> bool:
+        """
+        Check if URL is a Google Docs URL.
+
+        Args:
+            url: URL to check
+
+        Returns:
+            True if Google Docs URL, False otherwise
+        """
+        patterns = [
+            r'docs\.google\.com/document',
+            r'drive\.google\.com/file',
+        ]
+        return any(re.search(pattern, url) for pattern in patterns)
+
+    @staticmethod
+    def extract_from_google_docs(url: str) -> str:
+        """
+        Extract text from Google Docs URL.
+
+        Args:
+            url: Google Docs URL
+
+        Returns:
+            Extracted text content
+        """
+        try:
+            from app.services.googledocs_service import googledocs_service
+
+            text = googledocs_service.extract_from_url(url)
+            logger.info(f"Extracted {len(text)} characters from Google Docs")
+            return text
+
+        except Exception as e:
+            logger.error(f"Error extracting from Google Docs: {e}")
+            raise ValueError(f"Failed to extract text from Google Docs: {str(e)}")
+
+    @staticmethod
     def extract_from_url(url: str) -> str:
         """
         Fetch and extract text from URL.
-        For Notion pages, this is a simplified version - production should use Notion API.
+        Handles Google Docs, Notion pages, and generic URLs.
 
         Args:
             url: URL to fetch
@@ -83,6 +123,10 @@ class FileProcessor:
         Returns:
             Extracted text content
         """
+        # Check if it's a Google Docs URL
+        if FileProcessor.is_google_docs_url(url):
+            return FileProcessor.extract_from_google_docs(url)
+
         try:
             # Basic URL fetching
             # Note: For Notion, you should use the official Notion API
@@ -98,7 +142,6 @@ class FileProcessor:
 
             # Basic cleanup - remove HTML tags (simplified)
             # In production, use BeautifulSoup or similar
-            import re
             text = re.sub(r'<[^>]+>', '', content)
             text = re.sub(r'\s+', ' ', text).strip()
 
