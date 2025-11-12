@@ -27,9 +27,14 @@ class Settings(BaseSettings):
     slack_signing_secret: str
     slack_default_channel: str = "#daily-briefings"
 
-    # Google Docs
+    # Google Docs (Service Account - optional)
     google_credentials_file: Optional[str] = None
     google_credentials_json: Optional[str] = None
+
+    # Google OAuth2 (for user authentication)
+    google_client_id: Optional[str] = None
+    google_client_secret: Optional[str] = None
+    google_oauth_redirect_uri: Optional[str] = None
 
     # Application
     app_host: str = "0.0.0.0"

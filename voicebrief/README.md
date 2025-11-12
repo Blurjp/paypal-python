@@ -133,9 +133,10 @@ SLACK_BOT_TOKEN=xoxb-...
 SLACK_SIGNING_SECRET=...
 SLACK_DEFAULT_CHANNEL=#daily-briefings
 
-# Google Docs (Optional - for Google Docs integration)
-GOOGLE_CREDENTIALS_FILE=/path/to/service-account.json
-# Or use JSON string: GOOGLE_CREDENTIALS_JSON='{"type": "service_account", ...}'
+# Google Docs (Optional - OAuth2 recommended)
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+GOOGLE_OAUTH_REDIRECT_URI=https://your-domain.com/auth/google/callback
 
 # Application
 APP_BASE_URL=https://your-domain.com
@@ -199,88 +200,70 @@ Under **OAuth & Permissions**, add these Bot Token Scopes:
 
 If hosting on a different domain, configure CORS in Supabase settings.
 
-## 📄 Google Docs Setup
+## 📄 Google Docs Setup (OAuth2 - Recommended)
 
-Google Docs integration allows users to paste a Google Docs URL and automatically extract the content to create voice briefings. This is **optional** - VoiceBrief works without it.
+Google Docs integration allows users to connect their Google account and create voice briefings from any of their Google Docs - just like modern apps integrate with Google! This is **optional** - VoiceBrief works without it.
 
-### 1. Create a Google Cloud Project
+### Why OAuth2?
+
+✅ **User connects once** - works with all their Google Docs
+✅ **No manual sharing** - users have access to their own documents automatically
+✅ **Modern experience** - just like Gmail, Drive, Calendar integrations
+✅ **User-controlled** - each user connects their own account
+
+### Quick Start
+
+1. **Enable Google Docs API** in Google Cloud Console
+2. **Create OAuth2 credentials** (Client ID & Secret)
+3. **Configure Slack command** (`/voicebrief-google`)
+4. **Users connect** their Google accounts via Slack
+5. **Create briefings** from any Google Doc!
+
+### Detailed Setup Instructions
+
+See [GOOGLE_OAUTH_SETUP.md](./GOOGLE_OAUTH_SETUP.md) for complete step-by-step instructions.
+
+**Quick summary:**
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Create a new project or select an existing one
-3. Enable the **Google Docs API**:
-   - Go to "APIs & Services" → "Library"
-   - Search for "Google Docs API"
-   - Click "Enable"
+2. Create OAuth client ID (Web application)
+3. Add redirect URI: `https://your-domain.com/auth/google/callback`
+4. Set environment variables:
+```bash
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret
+GOOGLE_OAUTH_REDIRECT_URI=https://your-domain.com/auth/google/callback
+```
+5. Create Slack slash command `/voicebrief-google` pointing to `/slack/commands/google`
+6. Run database migration (see `supabase/schema.sql` for `google_oauth_tokens` table)
 
-### 2. Create a Service Account
+### User Experience
 
-1. Go to "APIs & Services" → "Credentials"
-2. Click "Create Credentials" → "Service Account"
-3. Name it "VoiceBrief Service Account"
-4. Click "Create and Continue"
-5. Skip optional steps and click "Done"
+Once set up, users simply:
 
-### 3. Generate Service Account Key
-
-1. Click on the service account you just created
-2. Go to the "Keys" tab
-3. Click "Add Key" → "Create new key"
-4. Select "JSON" format
-5. Click "Create" - a JSON file will download
-
-### 4. Configure VoiceBrief
-
-**Option A: Using JSON file** (recommended for local development)
+1. Type `/voicebrief-google` in Slack
+2. Click "Connect Google Account"
+3. Authorize on Google (one time)
+4. Start creating briefings from their Google Docs! 🎉
 
 ```bash
-# Move the downloaded JSON file to your project
-mv ~/Downloads/service-account-key.json /path/to/voicebrief/
-
-# Update .env
-GOOGLE_CREDENTIALS_FILE=/path/to/voicebrief/service-account-key.json
+# Example: Create briefing from Google Doc
+curl -X POST https://your-domain.com/upload \
+  -F "title=Q4 OKRs" \
+  -F "url=https://docs.google.com/document/d/YOUR_DOC_ID/edit" \
+  -F "user_id=U12345"  # Slack user ID
 ```
 
-**Option B: Using JSON string** (recommended for cloud deployment)
+### Alternative: Service Account (Legacy)
 
-```bash
-# Copy the entire JSON file content and set as environment variable
-GOOGLE_CREDENTIALS_JSON='{"type": "service_account", "project_id": "...", ...}'
-```
+If you prefer server-to-server access (requires sharing each document):
 
-### 5. Share Google Docs with Service Account
+1. Create service account in Google Cloud
+2. Download JSON key
+3. Set `GOOGLE_CREDENTIALS_FILE=/path/to/service-account.json`
+4. Share each Google Doc with the service account email
 
-For each Google Doc you want to extract:
-
-1. Open the Google Doc
-2. Click "Share"
-3. Add the service account email (found in the JSON file, looks like: `voicebrief-sa@your-project.iam.gserviceaccount.com`)
-4. Give it "Viewer" permission
-5. Click "Send"
-
-**Alternative:** Make the Google Doc accessible to "Anyone with the link" (Viewer permission)
-
-### 6. Test Google Docs Integration
-
-```bash
-# Upload a briefing from a Google Docs URL
-curl -X POST http://localhost:8000/upload \
-  -F "title=Test Google Doc Briefing" \
-  -F "url=https://docs.google.com/document/d/YOUR_DOC_ID/edit"
-```
-
-### Troubleshooting Google Docs
-
-**Error: "Access denied to Google Doc"**
-- Make sure the document is shared with the service account email
-- Or make the document public with "Anyone with the link" access
-
-**Error: "Google Docs service not initialized"**
-- Verify `GOOGLE_CREDENTIALS_FILE` or `GOOGLE_CREDENTIALS_JSON` is set correctly
-- Check the JSON file is valid and contains all required fields
-
-**Error: "Invalid Google Docs URL"**
-- Ensure you're using the full URL from the browser (e.g., `https://docs.google.com/document/d/ABC123/edit`)
-- Both `/document/d/` and `/file/d/` formats are supported
+**Note:** This method requires manual sharing of each document. OAuth2 is recommended for better user experience.
 
 ## 📡 API Endpoints
 

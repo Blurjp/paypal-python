@@ -12,7 +12,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from app.config import get_settings
-from app.routes import upload, briefings, slack, stats, listen
+from app.routes import upload, briefings, slack, stats, listen, google_oauth
 
 # Configure logging
 logging.basicConfig(
@@ -58,6 +58,7 @@ app.include_router(briefings.router, tags=["Briefings"])
 app.include_router(slack.router, tags=["Slack"])
 app.include_router(stats.router, tags=["Analytics"])
 app.include_router(listen.router, tags=["Listen"])
+app.include_router(google_oauth.router, tags=["Google OAuth"])
 
 
 @app.get("/")

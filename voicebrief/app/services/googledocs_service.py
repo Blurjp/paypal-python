@@ -1,10 +1,14 @@
 """
 Google Docs service for extracting text content from Google Docs.
+Supports both service account and OAuth2 user authentication.
 """
 import logging
 import re
 from typing import Optional
+from datetime import datetime, timezone
 from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from app.config import get_settings
@@ -170,12 +174,14 @@ class GoogleDocsService:
 
         return '\n'.join(table_text)
 
-    def extract_from_url(self, url: str) -> str:
+    def extract_from_url(self, url: str, user_id: Optional[str] = None) -> str:
         """
         Extract text content from a Google Docs URL.
+        Uses OAuth2 user credentials if user_id is provided, otherwise uses service account.
 
         Args:
             url: Full Google Docs URL
+            user_id: Optional Slack user ID for OAuth2 authentication
 
         Returns:
             Plain text content from the document
@@ -188,7 +194,124 @@ class GoogleDocsService:
         if not document_id:
             raise Exception(f"Invalid Google Docs URL: {url}")
 
-        return self.get_document_content(document_id)
+        # Use OAuth2 if user_id provided
+        if user_id:
+            return self.get_document_content_with_user_auth(document_id, user_id)
+        else:
+            return self.get_document_content(document_id)
+
+    async def get_user_credentials(self, user_id: str) -> Optional[Credentials]:
+        """
+        Get and refresh user OAuth2 credentials from database.
+
+        Args:
+            user_id: Slack user ID
+
+        Returns:
+            Google OAuth2 Credentials or None if user hasn't connected
+        """
+        try:
+            from app.config import get_settings
+            from supabase import create_client
+
+            settings = get_settings()
+            supabase = create_client(settings.supabase_url, settings.supabase_key)
+
+            # Get user tokens from database
+            result = supabase.table('google_oauth_tokens').select('*').eq('user_id', user_id).execute()
+
+            if not result.data or len(result.data) == 0:
+                logger.info(f"No Google OAuth tokens found for user {user_id}")
+                return None
+
+            token_data = result.data[0]
+
+            # Create credentials object
+            creds = Credentials(
+                token=token_data['access_token'],
+                refresh_token=token_data.get('refresh_token'),
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=settings.google_client_id,
+                client_secret=settings.google_client_secret,
+                scopes=token_data.get('scopes', ['https://www.googleapis.com/auth/documents.readonly'])
+            )
+
+            # Refresh if expired
+            if token_data.get('token_expiry'):
+                expiry = datetime.fromisoformat(token_data['token_expiry'].replace('Z', '+00:00'))
+                if expiry <= datetime.now(timezone.utc):
+                    logger.info(f"Refreshing expired token for user {user_id}")
+                    creds.refresh(Request())
+
+                    # Update database with new tokens
+                    supabase.table('google_oauth_tokens').update({
+                        'access_token': creds.token,
+                        'refresh_token': creds.refresh_token,
+                        'token_expiry': creds.expiry.isoformat() if creds.expiry else None,
+                        'updated_at': datetime.now(timezone.utc).isoformat()
+                    }).eq('user_id', user_id).execute()
+
+                    logger.info(f"Updated OAuth tokens for user {user_id}")
+
+            return creds
+
+        except Exception as e:
+            logger.error(f"Error getting user credentials for {user_id}: {e}")
+            return None
+
+    def get_document_content_with_user_auth(self, document_id: str, user_id: str) -> str:
+        """
+        Retrieve text content from a Google Doc using user OAuth2 credentials.
+
+        Args:
+            document_id: The Google Docs document ID
+            user_id: Slack user ID
+
+        Returns:
+            Plain text content from the document
+
+        Raises:
+            Exception: If document cannot be retrieved or user not authenticated
+        """
+        import asyncio
+
+        # Get user credentials
+        try:
+            # Run async function in sync context
+            creds = asyncio.run(self.get_user_credentials(user_id))
+        except RuntimeError:
+            # Already in async context, use existing event loop
+            import nest_asyncio
+            nest_asyncio.apply()
+            creds = asyncio.run(self.get_user_credentials(user_id))
+
+        if not creds:
+            raise Exception(f"User {user_id} has not connected their Google account. Please connect via Slack first.")
+
+        try:
+            # Build service with user credentials
+            user_service = build('docs', 'v1', credentials=creds)
+
+            # Retrieve the document
+            document = user_service.documents().get(documentId=document_id).execute()
+
+            # Extract text content from the document structure
+            content = self._extract_text_from_document(document)
+
+            logger.info(f"Successfully extracted {len(content)} characters from Google Doc {document_id} for user {user_id}")
+            return content
+
+        except HttpError as e:
+            if e.resp.status == 404:
+                raise Exception(f"Google Doc not found: {document_id}. Make sure the document exists.")
+            elif e.resp.status == 403:
+                raise Exception(f"Access denied to Google Doc {document_id}. Make sure you have permission to view this document.")
+            else:
+                logger.error(f"HTTP error retrieving Google Doc {document_id}: {e}")
+                raise Exception(f"Error retrieving Google Doc: {e}")
+        except Exception as e:
+            logger.error(f"Error retrieving Google Doc {document_id} for user {user_id}: {e}")
+            raise
 
 
 # Global instance

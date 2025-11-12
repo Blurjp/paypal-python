@@ -46,12 +46,26 @@ CREATE TABLE IF NOT EXISTS briefing_posts (
     UNIQUE(briefing_id, channel_id)
 );
 
+-- Google OAuth tokens table (store user OAuth credentials)
+CREATE TABLE IF NOT EXISTS google_oauth_tokens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id VARCHAR(100) NOT NULL UNIQUE, -- Slack user ID
+    user_email VARCHAR(255),
+    access_token TEXT NOT NULL,
+    refresh_token TEXT,
+    token_expiry TIMESTAMP WITH TIME ZONE,
+    scopes TEXT[], -- Array of granted scopes
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_briefings_created_at ON briefings(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_listeners_briefing_id ON listeners(briefing_id);
 CREATE INDEX IF NOT EXISTS idx_listeners_user_id ON listeners(user_id);
 CREATE INDEX IF NOT EXISTS idx_listeners_status ON listeners(status);
 CREATE INDEX IF NOT EXISTS idx_briefing_posts_briefing_id ON briefing_posts(briefing_id);
+CREATE INDEX IF NOT EXISTS idx_google_oauth_tokens_user_id ON google_oauth_tokens(user_id);
 
 -- Analytics view: completion stats per briefing
 CREATE OR REPLACE VIEW briefing_stats AS
